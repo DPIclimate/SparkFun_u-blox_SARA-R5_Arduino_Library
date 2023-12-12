@@ -4729,7 +4729,7 @@ SARA_R5_error_t SARA_R5::ftpCreateDirectory(const String &dirName) {
   return err;
 }
 
-SARA_R5_error_t SARA_R5::ftpList(const String &dirName,  char * response) {
+SARA_R5_error_t SARA_R5::ftpListFiles(const String &dirName, char * response, size_t size) {
 
   char * command;
 
@@ -4742,7 +4742,8 @@ SARA_R5_error_t SARA_R5::ftpList(const String &dirName,  char * response) {
   sprintf(command, "%s=%d,\"%s\"", SARA_R5_FTP_COMMAND, SARA_R5_FTP_COMMAND_LS, dirName.c_str());
 
   SARA_R5_error_t err = sendCommandWithResponse(command, SARA_R5_RESPONSE_OK_OR_ERROR, response,
-                                  SARA_R5_STANDARD_RESPONSE_TIMEOUT);
+                                  SARA_R5_STANDARD_RESPONSE_TIMEOUT, size);
+
   free(command);
   return err;
 }
@@ -5718,7 +5719,7 @@ SARA_R5_error_t SARA_R5::getFileBlock(const String& filename, char* buffer, size
 
   return SARA_R5_ERROR_SUCCESS;
 }
-SARA_R5_error_t SARA_R5::getAvailableSize(size_t * size)
+SARA_R5_error_t SARA_R5::getAvailableFreeSpace(size_t * size)
 {
 
   // Get the remaining space available on the modem in bytes
@@ -5731,6 +5732,7 @@ SARA_R5_error_t SARA_R5::getAvailableSize(size_t * size)
     return SARA_R5_ERROR_OUT_OF_MEMORY;
   }
 
+  // AT+ULSTFILE=1 returns the remaining free FS space expressed in bytes
   sprintf(command, "%s=1", SARA_R5_FILE_SYSTEM_LIST_FILES);
 
   response = sara_r5_calloc_char(minimumResponseAllocation);
@@ -5757,7 +5759,14 @@ SARA_R5_error_t SARA_R5::getAvailableSize(size_t * size)
     free(response);
     return err;
   }
-  char *responseStart = strstr(response, "+ULSTFILE:");
+
+  size_t strSearchLength = strlen(SARA_R5_FILE_SYSTEM_LIST_FILES);
+  char strSearch[strSearchLength+2];
+  strcpy(strSearch, SARA_R5_FILE_SYSTEM_LIST_FILES);
+  strncat(strSearch, ":", 1);
+
+  char *responseStart = strstr(response, strSearch);
+
   if (responseStart == nullptr)
   {
     if (_printDebug == true)
@@ -5772,7 +5781,7 @@ SARA_R5_error_t SARA_R5::getAvailableSize(size_t * size)
   }
 
   size_t availableSpace;
-  responseStart += strlen("+ULSTFILE:"); //  Move searchPtr to first char
+  responseStart += strlen(strSearch); //  Move searchPtr to first char
   while (*responseStart == ' ') responseStart++; // skip spaces
   sscanf(responseStart, "%d", &availableSpace);
   *size = availableSpace;
@@ -5817,6 +5826,7 @@ SARA_R5_error_t SARA_R5::getFileSize(String filename, int *size)
   }
 
   char *responseStart = strstr(response, "+ULSTFILE:");
+
   if (responseStart == nullptr)
   {
     if (_printDebug == true)
