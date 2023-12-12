@@ -5825,7 +5825,12 @@ SARA_R5_error_t SARA_R5::getFileSize(String filename, int *size)
     return err;
   }
 
-  char *responseStart = strstr(response, "+ULSTFILE:");
+  size_t strSearchLength = strlen(SARA_R5_FILE_SYSTEM_LIST_FILES);
+  char strSearch[strSearchLength+2];
+  strcpy(strSearch, SARA_R5_FILE_SYSTEM_LIST_FILES);
+  strncat(strSearch, ":", 1);
+
+  char *responseStart = strstr(response, strSearch);
 
   if (responseStart == nullptr)
   {
@@ -5841,7 +5846,7 @@ SARA_R5_error_t SARA_R5::getFileSize(String filename, int *size)
   }
 
   int fileSize;
-  responseStart += strlen("+ULSTFILE:"); //  Move searchPtr to first char
+  responseStart += strlen(strSearch); //  Move searchPtr to first char
   while (*responseStart == ' ') responseStart++; // skip spaces
   sscanf(responseStart, "%d", &fileSize);
   *size = fileSize;
